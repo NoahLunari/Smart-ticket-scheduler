@@ -35,7 +35,22 @@ tickets, default_schedule, blocked_days = load_data()
 # --- Show Updated Weekly Schedule ---
 new_schedule = get_schedule(tickets, default_schedule, blocked_days)
 st.subheader("📅 Weekly Schedule")
-st.json(new_schedule)
+# --- Display schedule ---
+st.subheader("📅 Weekly Schedule")
+
+# Convert schedule dict to DataFrame for calendar-style table
+schedule_df = pd.DataFrame([
+    {"Day": day, "Location": loc}
+    for day, loc in schedule.items()
+])
+
+# Optional: Set proper weekday order
+weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
+schedule_df = schedule_df.sort_values("Day")
+
+# Show table
+st.table(schedule_df)
 
 # --- Show Submitted Tickets as a Table ---
 if tickets:
