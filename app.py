@@ -33,7 +33,7 @@ with st.form("add_ticket_form"):
 tickets, default_schedule, blocked_days = load_data()
 
 # --- Show Updated Weekly Schedule ---
-new_schedule = get_schedule(tickets, default_schedule, blocked_days)
+schedule = get_schedule(tickets, default_schedule, blocked_days)
 st.subheader("📅 Weekly Schedule")
 # --- Display schedule ---
 st.subheader("📅 Weekly Schedule")
