@@ -12,7 +12,7 @@ st.markdown("This app helps you plan weekly visits to locations based on submitt
 with st.form("add_ticket_form"):
     st.subheader("➕ Add a New Ticket")
     ticket_name = st.text_input("Ticket Name")
-    location = st.selectbox("Select Location", ["Lan1", "Woodslea", "Main", "Bloor", "Backup"])
+    location = st.selectbox("Select Location", ["Lan1", "Woodslea", "creditstone/locke", "SEC", "1235 or close"])
     description = st.text_area("Brief Description")
     submitted = st.form_submit_button("Submit Ticket")
 
@@ -33,7 +33,7 @@ with st.form("add_ticket_form"):
 tickets, default_schedule, blocked_days = load_data()
 
 # --- Show Updated Weekly Schedule ---
-schedule = get_schedule(tickets, default_schedule, blocked_days)
+new_schedule = get_schedule(tickets, default_schedule, blocked_days)
 st.subheader("📅 Weekly Schedule")
 # --- Display schedule ---
 st.subheader("📅 Weekly Schedule")
@@ -41,7 +41,7 @@ st.subheader("📅 Weekly Schedule")
 # Convert schedule dict to DataFrame for calendar-style table
 schedule_df = pd.DataFrame([
     {"Day": day, "Location": loc}
-    for day, loc in schedule.items()
+    for day, loc in new_schedule.items()
 ])
 
 # Optional: Set proper weekday order
