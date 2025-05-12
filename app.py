@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import pandas as pd
 from schedule_logic import load_data, get_schedule
+import os
 
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
@@ -17,25 +18,30 @@ with st.form("add_ticket_form"):
     submitted = st.form_submit_button("Submit Ticket")
 
     if submitted and ticket_name:
-        # Load current tickets
-        with open("data/tickets.json", "r+") as f:
-            tickets = json.load(f)
-            tickets.append({
-                "ticket": ticket_name,
-                "location": location,
-                "description": description
-            })
-            f.seek(0)
-            json.dump(tickets, f, indent=2)
-        st.success(f"✅ Ticket '{ticket_name}' added for {location}.")
+        try:
+            # Load current tickets
+            with open("data/tickets.json", "r+") as f:
+                tickets = json.load(f)
+                tickets.append({
+                    "ticket": ticket_name,
+                    "location": location,
+                    "description": description
+                })
+                f.seek(0)
+                json.dump(tickets, f, indent=2)
+            st.success(f"✅ Ticket '{ticket_name}' added for {location}.")
+        except Exception as e:
+            st.error(f"Error saving ticket: {str(e)}")
 
 # --- Load Data ---
-tickets, default_schedule, blocked_days = load_data()
+try:
+    tickets, default_schedule, blocked_days = load_data()
+except Exception as e:
+    st.error(f"Error loading data: {str(e)}")
+    st.stop()
 
 # --- Show Updated Weekly Schedule ---
 new_schedule = get_schedule(tickets, default_schedule, blocked_days)
-st.subheader("📅 Weekly Schedule")
-# --- Display schedule ---
 st.subheader("📅 Weekly Schedule")
 
 # Convert schedule dict to DataFrame for calendar-style table
@@ -44,7 +50,7 @@ schedule_df = pd.DataFrame([
     for day, loc in new_schedule.items()
 ])
 
-# Optional: Set proper weekday order
+# Set proper weekday order
 weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
 schedule_df = schedule_df.sort_values("Day")
