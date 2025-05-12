@@ -5,7 +5,7 @@ from schedule_logic import load_data, get_schedule
 import os
 from datetime import datetime, date
 import uuid
-from st_aggrid import AgGrid, GridOptionsBuilder
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def generate_ticket_id():
@@ -241,9 +241,21 @@ if new_schedule:
     gb.configure_column("Status", width=120)
     gb.configure_column("Latest Tickets", width=300)
     
+    # Enable row selection
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False,
+        pre_selected_rows=[0]
+    )
+    
+    # Add row click handler
+    gb.configure_grid_options(
+        rowStyle={'cursor': 'pointer'},
+        domLayout='autoHeight'
+    )
+    
     # Set theme and other grid options
     grid_options = gb.build()
-    grid_options['domLayout'] = 'autoHeight'
     
     # Render the grid
     grid_response = AgGrid(
@@ -252,12 +264,16 @@ if new_schedule:
         theme="streamlit",
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
-        height=300
+        height=300,
+        update_mode="SELECTION_CHANGED"
     )
+    
+    # Get selected row data
+    selected_rows = grid_response["selected_rows"]
+    selected_day = selected_rows[0]["Day"] if selected_rows else weekday_order[0]
     
     # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
-    selected_day = st.selectbox("Select Day to View Details", weekday_order)
     
     if selected_day:
         location = new_schedule.get(selected_day)
@@ -268,6 +284,8 @@ if new_schedule:
             # Show lock/unlock controls
             col1, col2 = st.columns([0.7, 0.3])
             with col1:
+                st.write(f"**Selected Day:** {selected_day}")
+                st.write(f"**Location:** {location}")
                 st.write(f"**Current Status:** {'🔒 Locked' if locked_ticket_id else '✅ Available'}")
             with col2:
                 if locked_ticket_id:
@@ -279,6 +297,8 @@ if new_schedule:
             # Show tickets for the location
             day_tickets = [t for t in tickets if t["location"] == location]
             if day_tickets:
+                st.write("---")
+                st.write(f"**Tickets for {location}:**")
                 for ticket in day_tickets:
                     is_locked = ticket["ticket_id"] == locked_ticket_id
                     with st.expander(
@@ -305,7 +325,7 @@ if new_schedule:
                                     st.success("Ticket archived successfully!")
                                     st.rerun()
             else:
-                st.info("No tickets for this location.")
+                st.info(f"No tickets for {location} at this time.")
 else:
     st.info("No schedule generated. Please add some tickets to create a schedule.")
 
