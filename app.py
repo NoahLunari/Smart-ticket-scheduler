@@ -44,19 +44,22 @@ except Exception as e:
 new_schedule = get_schedule(tickets, default_schedule, blocked_days)
 st.subheader("📅 Weekly Schedule")
 
-# Convert schedule dict to DataFrame for calendar-style table
-schedule_df = pd.DataFrame([
-    {"Day": day, "Location": loc}
-    for day, loc in new_schedule.items()
-])
+if new_schedule:
+    # Convert schedule dict to DataFrame for calendar-style table
+    schedule_df = pd.DataFrame([
+        {"Day": day, "Location": loc}
+        for day, loc in new_schedule.items()
+    ])
 
-# Set proper weekday order
-weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
-schedule_df = schedule_df.sort_values("Day")
+    # Set proper weekday order
+    weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
+    schedule_df = schedule_df.sort_values("Day")
 
-# Show table
-st.table(schedule_df)
+    # Show table
+    st.table(schedule_df)
+else:
+    st.info("No schedule generated. Please add some tickets to create a schedule.")
 
 # --- Show Submitted Tickets as a Table ---
 if tickets:
