@@ -27,6 +27,10 @@ def is_duplicate_ticket(ticket_name, location, date):
 def archive_ticket(ticket):
     """Archive a ticket by moving it to the archived_tickets.json file"""
     try:
+        # Convert pandas Series to dict if needed
+        if isinstance(ticket, pd.Series):
+            ticket = ticket.to_dict()
+            
         # Load current archived tickets
         with open("data/archived_tickets.json", "r") as f:
             archived_data = json.load(f)
@@ -281,7 +285,9 @@ if tickets:
                 try:
                     # Archive the ticket before removing
                     if archive_ticket(ticket):
-                        tickets.pop(idx)
+                        # Convert Series to dict for removal
+                        ticket_dict = ticket.to_dict()
+                        tickets = [t for t in tickets if t['ticket_id'] != ticket_dict['ticket_id']]
                         with open("data/tickets.json", "w") as f:
                             json.dump(tickets, f, indent=2)
                         st.success(f"Ticket '{ticket['ticket']}' archived and deleted!")
