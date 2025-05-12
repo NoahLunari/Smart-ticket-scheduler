@@ -56,20 +56,14 @@ if new_schedule:
         if location:
             location_counts[location] = location_counts.get(location, 0) + 1
 
-    # Get current week's dates
-    today = date.today()
-    start_of_week = today - pd.Timedelta(days=today.weekday())
-    week_dates = [start_of_week + pd.Timedelta(days=i) for i in range(5)]  # Monday to Friday
-
     # Convert schedule dict to DataFrame for calendar-style table
     schedule_df = pd.DataFrame([
         {
-            "Date": week_dates[i].strftime("%Y-%m-%d"),
             "Day": day,
             "Location": loc,
             "Tickets": f"{location_counts.get(loc, 0)} tickets"
         }
-        for i, (day, loc) in enumerate(new_schedule.items())
+        for day, loc in new_schedule.items()
     ])
 
     # Set proper weekday order
