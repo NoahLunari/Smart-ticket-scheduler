@@ -210,7 +210,8 @@ if new_schedule:
                                 try:
                                     # Archive the ticket before removing
                                     if archive_ticket(ticket):
-                                        tickets.remove(ticket)
+                                        # Remove ticket from the list
+                                        tickets = [t for t in tickets if t['ticket_id'] != ticket['ticket_id']]
                                         with open("data/tickets.json", "w") as f:
                                             json.dump(tickets, f, indent=2)
                                         st.success(f"Ticket '{ticket['ticket']}' archived and deleted!")
