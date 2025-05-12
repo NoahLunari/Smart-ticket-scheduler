@@ -137,6 +137,44 @@ else:
 if tickets:
     st.subheader("📄 Submitted Tickets")
     
+    # Add Clear Tickets section
+    with st.expander("🗑️ Clear Tickets", expanded=False):
+        st.write("Select time interval to clear tickets:")
+        clear_option = st.selectbox(
+            "Clear tickets from:",
+            ["Last 24 hours", "Last 7 days", "Last 30 days", "All tickets"],
+            key="clear_tickets"
+        )
+        
+        if st.button("Clear Selected Tickets", type="primary"):
+            try:
+                current_time = datetime.now()
+                filtered_tickets = []
+                
+                for ticket in tickets:
+                    ticket_date = datetime.strptime(ticket['date'], "%Y-%m-%d")
+                    days_diff = (current_time - ticket_date).days
+                    
+                    if clear_option == "Last 24 hours" and days_diff <= 1:
+                        continue
+                    elif clear_option == "Last 7 days" and days_diff <= 7:
+                        continue
+                    elif clear_option == "Last 30 days" and days_diff <= 30:
+                        continue
+                    elif clear_option == "All tickets":
+                        continue
+                    else:
+                        filtered_tickets.append(ticket)
+                
+                # Save the filtered tickets
+                with open("data/tickets.json", "w") as f:
+                    json.dump(filtered_tickets, f, indent=2)
+                
+                st.success(f"✅ Cleared tickets from {clear_option.lower()}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error clearing tickets: {str(e)}")
+    
     # Create a DataFrame with an index for deletion
     df = pd.DataFrame(tickets)
     if 'date' in df.columns:
