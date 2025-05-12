@@ -247,8 +247,7 @@ if new_schedule:
         selection_mode="single",
         use_checkbox=False,
         pre_selected_rows=[0],
-        rowMultiSelectWithClick=False,
-        suppressRowDeselection=False,
+        suppressRowDeselection=True,
     )
     
     # Add row click handler and styling
@@ -258,6 +257,11 @@ if new_schedule:
         suppressRowClickSelection=False,
         enableRangeSelection=False,
         suppressCellSelection=True,
+        onRowClicked=JsCode("""
+        function(e) {
+            console.log('row clicked', e);
+        }
+        """)
     )
     
     # Set theme and other grid options
@@ -273,6 +277,10 @@ if new_schedule:
         </style>
     """, unsafe_allow_html=True)
     
+    # Create a session state for selection if it doesn't exist
+    if 'selected_day' not in st.session_state:
+        st.session_state.selected_day = schedule_df.iloc[0]["Day"] if not schedule_df.empty else None
+    
     # Render the grid with selection handling
     grid_response = AgGrid(
         schedule_df,
@@ -281,23 +289,18 @@ if new_schedule:
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         height=300,
-        update_mode="SELECTION_CHANGED",
-        key="schedule_grid"
+        update_mode="MODEL_CHANGED",
+        key=f"schedule_grid_{st.session_state.selected_day}"
     )
     
     # Get selected row data with fallback
     selected_rows = grid_response.get("selected_rows", [])
     
-    # Handle selection and default to first day if needed
-    if not isinstance(selected_rows, list) or len(selected_rows) == 0:
-        # No row selected, default to first day in schedule if available
-        if len(schedule_df) > 0:
-            selected_day = schedule_df.iloc[0]["Day"]
-        else:
-            selected_day = None
-    else:
-        # Use the clicked/selected row
-        selected_day = selected_rows[0]["Day"]
+    # Update selected day based on grid selection or keep previous selection
+    if selected_rows and len(selected_rows) > 0:
+        st.session_state.selected_day = selected_rows[0]["Day"]
+    
+    selected_day = st.session_state.selected_day
     
     # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
