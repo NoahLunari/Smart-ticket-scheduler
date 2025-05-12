@@ -5,6 +5,29 @@ from schedule_logic import load_data, get_schedule
 import os
 from datetime import datetime, date
 
+def archive_ticket(ticket):
+    """Archive a ticket by moving it to the archived_tickets.json file"""
+    try:
+        # Load current archived tickets
+        with open("data/archived_tickets.json", "r") as f:
+            archived_data = json.load(f)
+            archived_tickets = archived_data.get("archived_tickets", [])
+        
+        # Add archive timestamp
+        ticket["archived_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Add to archived tickets
+        archived_tickets.append(ticket)
+        
+        # Save updated archived tickets
+        with open("data/archived_tickets.json", "w") as f:
+            json.dump({"archived_tickets": archived_tickets}, f, indent=2)
+            
+        return True
+    except Exception as e:
+        st.error(f"Error archiving ticket: {str(e)}")
+        return False
+
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
 st.markdown("This app helps you plan weekly visits to locations based on submitted support tickets. "
@@ -157,11 +180,13 @@ if new_schedule:
                         with col2:
                             if st.button("🗑️", key=f"delete_schedule_{day_idx}_{ticket_idx}_{ticket['ticket']}"):
                                 try:
-                                    tickets.remove(ticket)
-                                    with open("data/tickets.json", "w") as f:
-                                        json.dump(tickets, f, indent=2)
-                                    st.success(f"Ticket '{ticket['ticket']}' deleted!")
-                                    st.rerun()
+                                    # Archive the ticket before removing
+                                    if archive_ticket(ticket):
+                                        tickets.remove(ticket)
+                                        with open("data/tickets.json", "w") as f:
+                                            json.dump(tickets, f, indent=2)
+                                        st.success(f"Ticket '{ticket['ticket']}' archived and deleted!")
+                                        st.rerun()
                                 except Exception as e:
                                     st.error(f"Error deleting ticket: {str(e)}")
                         st.divider()
@@ -187,27 +212,32 @@ if tickets:
             try:
                 current_time = datetime.now()
                 filtered_tickets = []
+                archived_tickets = []
                 
                 for ticket in tickets:
                     ticket_date = datetime.strptime(ticket['date'], "%Y-%m-%d")
                     days_diff = (current_time - ticket_date).days
                     
                     if clear_option == "Last 24 hours" and days_diff <= 1:
-                        continue
+                        archived_tickets.append(ticket)
                     elif clear_option == "Last 7 days" and days_diff <= 7:
-                        continue
+                        archived_tickets.append(ticket)
                     elif clear_option == "Last 30 days" and days_diff <= 30:
-                        continue
+                        archived_tickets.append(ticket)
                     elif clear_option == "All tickets":
-                        continue
+                        archived_tickets.append(ticket)
                     else:
                         filtered_tickets.append(ticket)
+                
+                # Archive the tickets before removing
+                for ticket in archived_tickets:
+                    archive_ticket(ticket)
                 
                 # Save the filtered tickets
                 with open("data/tickets.json", "w") as f:
                     json.dump(filtered_tickets, f, indent=2)
                 
-                st.success(f"✅ Cleared tickets from {clear_option.lower()}")
+                st.success(f"✅ Cleared and archived tickets from {clear_option.lower()}")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error clearing tickets: {str(e)}")
@@ -225,13 +255,13 @@ if tickets:
         with col2:
             if st.button("🗑️", key=f"delete_{idx}"):
                 try:
-                    # Remove the ticket from the list
-                    tickets.pop(idx)
-                    # Save the updated tickets
-                    with open("data/tickets.json", "w") as f:
-                        json.dump(tickets, f, indent=2)
-                    st.success(f"Ticket '{ticket['ticket']}' deleted!")
-                    st.rerun()
+                    # Archive the ticket before removing
+                    if archive_ticket(ticket):
+                        tickets.pop(idx)
+                        with open("data/tickets.json", "w") as f:
+                            json.dump(tickets, f, indent=2)
+                        st.success(f"Ticket '{ticket['ticket']}' archived and deleted!")
+                        st.rerun()
                 except Exception as e:
                     st.error(f"Error deleting ticket: {str(e)}")
 else:
