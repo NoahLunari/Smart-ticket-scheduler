@@ -3,6 +3,7 @@ import json
 import pandas as pd
 from schedule_logic import load_data, get_schedule
 import os
+from datetime import datetime, date
 
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
@@ -15,6 +16,7 @@ with st.form("add_ticket_form"):
     ticket_name = st.text_input("Ticket Name")
     location = st.selectbox("Select Location", ["Lan1", "Woodslea", "creditstone/locke", "SEC", "1235 or close"])
     description = st.text_area("Brief Description")
+    ticket_date = st.date_input("Ticket Date", value=date.today())
     submitted = st.form_submit_button("Submit Ticket")
 
     if submitted and ticket_name:
@@ -25,7 +27,9 @@ with st.form("add_ticket_form"):
                 tickets.append({
                     "ticket": ticket_name,
                     "location": location,
-                    "description": description
+                    "description": description,
+                    "date": ticket_date.strftime("%Y-%m-%d"),
+                    "submitted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
                 f.seek(0)
                 json.dump(tickets, f, indent=2)
@@ -52,14 +56,20 @@ if new_schedule:
         if location:
             location_counts[location] = location_counts.get(location, 0) + 1
 
+    # Get current week's dates
+    today = date.today()
+    start_of_week = today - pd.Timedelta(days=today.weekday())
+    week_dates = [start_of_week + pd.Timedelta(days=i) for i in range(5)]  # Monday to Friday
+
     # Convert schedule dict to DataFrame for calendar-style table
     schedule_df = pd.DataFrame([
         {
+            "Date": week_dates[i].strftime("%Y-%m-%d"),
             "Day": day,
             "Location": loc,
             "Tickets": f"{location_counts.get(loc, 0)} tickets"
         }
-        for day, loc in new_schedule.items()
+        for i, (day, loc) in enumerate(new_schedule.items())
     ])
 
     # Set proper weekday order
@@ -76,6 +86,9 @@ else:
 if tickets:
     st.subheader("📄 Submitted Tickets")
     df = pd.DataFrame(tickets)
+    # Sort tickets by date in descending order
+    if 'date' in df.columns:
+        df = df.sort_values('date', ascending=False)
     st.dataframe(df)
 else:
     st.info("No tickets submitted yet.")
