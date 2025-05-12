@@ -256,12 +256,7 @@ if new_schedule:
         domLayout='autoHeight',
         suppressRowClickSelection=False,
         enableRangeSelection=False,
-        suppressCellSelection=True,
-        onRowClicked=JsCode("""
-        function(e) {
-            console.log('row clicked', e);
-        }
-        """)
+        suppressCellSelection=True
     )
     
     # Set theme and other grid options
@@ -277,9 +272,12 @@ if new_schedule:
         </style>
     """, unsafe_allow_html=True)
     
-    # Create a session state for selection if it doesn't exist
+    # Initialize default selection
     if 'selected_day' not in st.session_state:
-        st.session_state.selected_day = schedule_df.iloc[0]["Day"] if not schedule_df.empty else None
+        if not schedule_df.empty and len(schedule_df.index) > 0:
+            st.session_state.selected_day = schedule_df.iloc[0]["Day"]
+        else:
+            st.session_state.selected_day = None
     
     # Render the grid with selection handling
     grid_response = AgGrid(
@@ -289,14 +287,13 @@ if new_schedule:
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         height=300,
-        update_mode="MODEL_CHANGED",
-        key=f"schedule_grid_{st.session_state.selected_day}"
+        update_mode="MODEL_CHANGED"
     )
     
     # Get selected row data with fallback
     selected_rows = grid_response.get("selected_rows", [])
     
-    # Update selected day based on grid selection or keep previous selection
+    # Update selected day based on grid selection
     if selected_rows and len(selected_rows) > 0:
         st.session_state.selected_day = selected_rows[0]["Day"]
     
