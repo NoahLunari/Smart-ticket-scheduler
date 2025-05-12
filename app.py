@@ -134,8 +134,8 @@ if new_schedule:
         location = row["Location"]
         ticket_count = row["Tickets"]
         
-        # Create an expander for each day
-        with st.expander(f"📅 {day} - {location} ({ticket_count})", expanded=False):
+        # Create an expander for each day with a number instead of calendar icon
+        with st.expander(f"{day_idx + 1}. {day} - {location} ({ticket_count})", expanded=False):
             # Filter tickets for this location
             day_tickets = [t for t in tickets if t["location"] == location]
             
