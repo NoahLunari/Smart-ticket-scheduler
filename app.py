@@ -289,10 +289,15 @@ if new_schedule:
     selected_rows = grid_response["selected_rows"]
     
     # Handle selection and default to first day if needed
-    if len(selected_rows) == 0 and len(schedule_df) > 0:
-        selected_day = schedule_df.iloc[0]["Day"]
+    if len(selected_rows) == 0:
+        # No row selected, default to first day in schedule if available
+        if len(schedule_df) > 0:
+            selected_day = schedule_df.iloc[0]["Day"]
+        else:
+            selected_day = None
     else:
-        selected_day = selected_rows[0]["Day"] if selected_rows else None
+        # Use the clicked/selected row
+        selected_day = selected_rows[0]["Day"]
     
     # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
