@@ -53,6 +53,34 @@ def archive_ticket(ticket):
         st.error(f"Error archiving ticket: {str(e)}")
         return False
 
+def lock_ticket_to_day(ticket_id, day):
+    """Lock a ticket to a specific day"""
+    try:
+        with open("data/locked_tickets.json", "r+") as f:
+            locked_data = json.load(f)
+            locked_data["locked_tickets"][day] = ticket_id
+            f.seek(0)
+            f.truncate()
+            json.dump(locked_data, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Error locking ticket: {str(e)}")
+        return False
+
+def unlock_day(day):
+    """Remove lock from a day"""
+    try:
+        with open("data/locked_tickets.json", "r+") as f:
+            locked_data = json.load(f)
+            locked_data["locked_tickets"][day] = null
+            f.seek(0)
+            f.truncate()
+            json.dump(locked_data, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Error unlocking day: {str(e)}")
+        return False
+
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
 st.markdown("This app helps you plan weekly visits to locations based on submitted support tickets. "
@@ -149,13 +177,13 @@ with st.form("add_ticket_form"):
 
 # --- Load Data ---
 try:
-    tickets, default_schedule, blocked_days = load_data()
+    tickets, default_schedule, locked_tickets = load_data()
 except Exception as e:
     st.error(f"Error loading data: {str(e)}")
     st.stop()
 
 # --- Show Updated Weekly Schedule ---
-new_schedule = get_schedule(tickets, default_schedule, blocked_days)
+new_schedule = get_schedule(tickets, default_schedule, locked_tickets)
 st.subheader("📅 Weekly Schedule")
 
 if new_schedule:
@@ -175,15 +203,24 @@ if new_schedule:
         ticket_count = location_counts.get(location, 0)
         day_tickets = [t for t in tickets if t["location"] == location]
         
-        # Get the latest tickets for this location
-        latest_tickets = ", ".join([t["ticket"] for t in day_tickets[:3]])
+        # Check if day has a locked ticket
+        locked_ticket_id = locked_tickets["locked_tickets"].get(day)
+        locked_ticket = next((t for t in tickets if t["ticket_id"] == locked_ticket_id), None) if locked_ticket_id else None
+        
+        # Get the latest tickets for this location, highlighting locked ticket if present
+        latest_tickets = []
+        for t in day_tickets[:3]:
+            if locked_ticket and t["ticket_id"] == locked_ticket["ticket_id"]:
+                latest_tickets.append(f"🔒 {t['ticket']}")
+            else:
+                latest_tickets.append(t["ticket"])
         
         schedule_data.append({
             "Day": day,
             "Location": location,
             "Ticket Count": ticket_count,
-            "Status": "🚫 Blocked" if day in blocked_days else "✅ Available",
-            "Latest Tickets": latest_tickets
+            "Status": "🔒 Locked" if locked_ticket else "✅ Available",
+            "Latest Tickets": ", ".join(latest_tickets)
         })
     
     schedule_df = pd.DataFrame(schedule_data)
@@ -219,25 +256,54 @@ if new_schedule:
     )
     
     # Add ticket details section below the grid
-    st.subheader("📝 Location Details")
+    st.subheader("📝 Location Details and Ticket Management")
     selected_day = st.selectbox("Select Day to View Details", weekday_order)
     
     if selected_day:
         location = new_schedule.get(selected_day)
         if location:
+            # Check if day is locked
+            locked_ticket_id = locked_tickets["locked_tickets"].get(selected_day)
+            
+            # Show lock/unlock controls
+            col1, col2 = st.columns([0.7, 0.3])
+            with col1:
+                st.write(f"**Current Status:** {'🔒 Locked' if locked_ticket_id else '✅ Available'}")
+            with col2:
+                if locked_ticket_id:
+                    if st.button("🔓 Unlock Day", key=f"unlock_{selected_day}"):
+                        if unlock_day(selected_day):
+                            st.success(f"Day {selected_day} unlocked!")
+                            st.rerun()
+            
+            # Show tickets for the location
             day_tickets = [t for t in tickets if t["location"] == location]
             if day_tickets:
                 for ticket in day_tickets:
-                    with st.expander(f"🎫 {ticket['ticket']} - {ticket['date']}", expanded=False):
+                    is_locked = ticket["ticket_id"] == locked_ticket_id
+                    with st.expander(
+                        f"{'🔒 ' if is_locked else ''}🎫 {ticket['ticket']} - {ticket['date']}", 
+                        expanded=is_locked
+                    ):
                         st.write(f"**Description:** {ticket['description']}")
                         st.write(f"**Submitted:** {ticket['submitted_at']}")
-                        if st.button("🗑️ Archive", key=f"archive_{ticket['ticket_id']}"):
-                            if archive_ticket(ticket):
-                                tickets = [t for t in tickets if t['ticket_id'] != ticket['ticket_id']]
-                                with open("data/tickets.json", "w") as f:
-                                    json.dump(tickets, f, indent=2)
-                                st.success("Ticket archived successfully!")
-                                st.rerun()
+                        
+                        # Lock/Archive controls
+                        col1, col2 = st.columns([0.5, 0.5])
+                        with col1:
+                            if not is_locked and not locked_ticket_id:
+                                if st.button("🔒 Lock to Day", key=f"lock_{ticket['ticket_id']}"):
+                                    if lock_ticket_to_day(ticket["ticket_id"], selected_day):
+                                        st.success(f"Ticket locked to {selected_day}!")
+                                        st.rerun()
+                        with col2:
+                            if st.button("🗑️ Archive", key=f"archive_{ticket['ticket_id']}"):
+                                if archive_ticket(ticket):
+                                    tickets = [t for t in tickets if t['ticket_id'] != ticket['ticket_id']]
+                                    with open("data/tickets.json", "w") as f:
+                                        json.dump(tickets, f, indent=2)
+                                    st.success("Ticket archived successfully!")
+                                    st.rerun()
             else:
                 st.info("No tickets for this location.")
 else:
