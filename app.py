@@ -286,10 +286,10 @@ if new_schedule:
     )
     
     # Get selected row data with fallback
-    selected_rows = grid_response["selected_rows"]
+    selected_rows = grid_response.get("selected_rows", [])
     
     # Handle selection and default to first day if needed
-    if len(selected_rows) == 0:
+    if not isinstance(selected_rows, list) or len(selected_rows) == 0:
         # No row selected, default to first day in schedule if available
         if len(schedule_df) > 0:
             selected_day = schedule_df.iloc[0]["Day"]
