@@ -128,14 +128,17 @@ if new_schedule:
     schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
     schedule_df = schedule_df.sort_values("Day")
 
+    # Number emojis for days
+    number_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+
     # Show table with clickable days
     for day_idx, (_, row) in enumerate(schedule_df.iterrows()):
         day = row["Day"]
         location = row["Location"]
         ticket_count = row["Tickets"]
         
-        # Create an expander for each day with a number instead of calendar icon
-        with st.expander(f"{day_idx + 1}. {day} - {location} ({ticket_count})", expanded=False):
+        # Create an expander for each day with a number emoji
+        with st.expander(f"{number_emojis[day_idx]} {day} - {location} ({ticket_count})", expanded=False):
             # Filter tickets for this location
             day_tickets = [t for t in tickets if t["location"] == location]
             
