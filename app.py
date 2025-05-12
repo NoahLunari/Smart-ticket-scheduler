@@ -184,7 +184,8 @@ except Exception as e:
 
 # --- Show Updated Weekly Schedule ---
 new_schedule = get_schedule(tickets, default_schedule, locked_tickets)
-st.subheader("📅 Weekly Schedule")
+st.subheader("�� Weekly Schedule")
+st.caption("👆 Click any row in the schedule to view location details below")
 
 if new_schedule:
     # Count tickets per location
@@ -241,23 +242,38 @@ if new_schedule:
     gb.configure_column("Status", width=120)
     gb.configure_column("Latest Tickets", width=300)
     
-    # Enable row selection
+    # Enable row selection with enhanced interactivity
     gb.configure_selection(
         selection_mode="single",
         use_checkbox=False,
-        pre_selected_rows=[0]
+        pre_selected_rows=[0],
+        rowMultiSelectWithClick=False,
+        suppressRowDeselection=False,
     )
     
-    # Add row click handler
+    # Add row click handler and styling
     gb.configure_grid_options(
         rowStyle={'cursor': 'pointer'},
-        domLayout='autoHeight'
+        domLayout='autoHeight',
+        suppressRowClickSelection=False,
+        enableRangeSelection=False,
+        suppressCellSelection=True,
     )
     
     # Set theme and other grid options
     grid_options = gb.build()
     
-    # Render the grid
+    # Custom CSS for hover effect
+    grid_options['rowClass'] = 'row-hover'
+    st.markdown("""
+        <style>
+        .row-hover:hover {
+            background-color: rgba(0, 0, 0, 0.1) !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Render the grid with selection handling
     grid_response = AgGrid(
         schedule_df,
         gridOptions=grid_options,
@@ -265,12 +281,18 @@ if new_schedule:
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         height=300,
-        update_mode="SELECTION_CHANGED"
+        update_mode="SELECTION_CHANGED",
+        key="schedule_grid"
     )
     
-    # Get selected row data
+    # Get selected row data with fallback
     selected_rows = grid_response["selected_rows"]
-    selected_day = selected_rows[0]["Day"] if selected_rows else weekday_order[0]
+    if selected_rows:
+        selected_day = selected_rows[0]["Day"]
+    else:
+        # If no selection, default to first row
+        selected_day = schedule_df.iloc[0]["Day"]
+        st.rerun()  # Force refresh to show selection
     
     # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
