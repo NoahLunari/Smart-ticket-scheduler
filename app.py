@@ -280,7 +280,7 @@ if new_schedule:
             st.session_state.selected_day = None
     
     # Render the grid with selection handling
-    grid_response = AgGrid(
+    grid_return = AgGrid(
         schedule_df,
         gridOptions=grid_options,
         theme="streamlit",
@@ -290,12 +290,11 @@ if new_schedule:
         update_mode="MODEL_CHANGED"
     )
     
-    # Get selected row data with fallback
-    selected_rows = grid_response.get("selected_rows", [])
-    
-    # Update selected day based on grid selection
-    if selected_rows and len(selected_rows) > 0:
-        st.session_state.selected_day = selected_rows[0]["Day"]
+    # Handle selection
+    if isinstance(grid_return, dict) and 'selected_rows' in grid_return:
+        selected_rows = grid_return['selected_rows']
+        if isinstance(selected_rows, list) and len(selected_rows) > 0:
+            st.session_state.selected_day = selected_rows[0]["Day"]
     
     selected_day = st.session_state.selected_day
     
