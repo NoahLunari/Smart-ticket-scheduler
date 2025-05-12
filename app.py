@@ -136,10 +136,28 @@ else:
 # --- Show Submitted Tickets as a Table ---
 if tickets:
     st.subheader("📄 Submitted Tickets")
+    
+    # Create a DataFrame with an index for deletion
     df = pd.DataFrame(tickets)
-    # Sort tickets by date in descending order
     if 'date' in df.columns:
         df = df.sort_values('date', ascending=False)
-    st.dataframe(df)
+    
+    # Add delete buttons for each ticket
+    for idx, ticket in df.iterrows():
+        col1, col2 = st.columns([0.95, 0.05])
+        with col1:
+            st.dataframe(pd.DataFrame([ticket]), hide_index=True)
+        with col2:
+            if st.button("🗑️", key=f"delete_{idx}"):
+                try:
+                    # Remove the ticket from the list
+                    tickets.pop(idx)
+                    # Save the updated tickets
+                    with open("data/tickets.json", "w") as f:
+                        json.dump(tickets, f, indent=2)
+                    st.success(f"Ticket '{ticket['ticket']}' deleted!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting ticket: {str(e)}")
 else:
     st.info("No tickets submitted yet.")
