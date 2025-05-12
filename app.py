@@ -5,6 +5,8 @@ from schedule_logic import load_data, get_schedule
 import os
 from datetime import datetime, date
 import uuid
+from st_aggrid import AgGrid, GridOptionsBuilder
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def generate_ticket_id():
     """Generate a unique ticket ID"""
@@ -164,63 +166,80 @@ if new_schedule:
         if location:
             location_counts[location] = location_counts.get(location, 0) + 1
 
-    # Convert schedule dict to DataFrame for calendar-style table
-    schedule_df = pd.DataFrame([
-        {
-            "Day": day,
-            "Location": loc,
-            "Tickets": f"{location_counts.get(loc, 0)} tickets"
-        }
-        for day, loc in new_schedule.items()
-    ])
-
-    # Set proper weekday order
+    # Create a more detailed DataFrame for the grid
+    schedule_data = []
     weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
-    schedule_df = schedule_df.sort_values("Day")
-
-    # Number emojis for days
-    number_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
-
-    # Show table with clickable days
-    for day_idx, (_, row) in enumerate(schedule_df.iterrows()):
-        day = row["Day"]
-        location = row["Location"]
-        ticket_count = row["Tickets"]
+    
+    for day in weekday_order:
+        location = new_schedule.get(day, "Not Scheduled")
+        ticket_count = location_counts.get(location, 0)
+        day_tickets = [t for t in tickets if t["location"] == location]
         
-        # Create an expander for each day with a number emoji
-        with st.expander(f"{number_emojis[day_idx]} {day} - {location} ({ticket_count})", expanded=False):
-            # Filter tickets for this location
+        # Get the latest tickets for this location
+        latest_tickets = ", ".join([t["ticket"] for t in day_tickets[:3]])
+        
+        schedule_data.append({
+            "Day": day,
+            "Location": location,
+            "Ticket Count": ticket_count,
+            "Status": "🚫 Blocked" if day in blocked_days else "✅ Available",
+            "Latest Tickets": latest_tickets
+        })
+    
+    schedule_df = pd.DataFrame(schedule_data)
+    
+    # Configure grid options
+    gb = GridOptionsBuilder.from_dataframe(schedule_df)
+    gb.configure_default_column(
+        resizable=True,
+        filterable=True,
+        sorteable=True,
+        editable=False
+    )
+    
+    # Customize column properties
+    gb.configure_column("Day", pinned="left", width=120)
+    gb.configure_column("Location", width=150)
+    gb.configure_column("Ticket Count", width=120)
+    gb.configure_column("Status", width=120)
+    gb.configure_column("Latest Tickets", width=300)
+    
+    # Set theme and other grid options
+    grid_options = gb.build()
+    grid_options['domLayout'] = 'autoHeight'
+    
+    # Render the grid
+    grid_response = AgGrid(
+        schedule_df,
+        gridOptions=grid_options,
+        theme="streamlit",
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,
+        height=300
+    )
+    
+    # Add ticket details section below the grid
+    st.subheader("📝 Location Details")
+    selected_day = st.selectbox("Select Day to View Details", weekday_order)
+    
+    if selected_day:
+        location = new_schedule.get(selected_day)
+        if location:
             day_tickets = [t for t in tickets if t["location"] == location]
-            
             if day_tickets:
-                # Sort tickets by date
-                day_tickets.sort(key=lambda x: x["date"], reverse=True)
-                
-                # Display each ticket
-                for ticket_idx, ticket in enumerate(day_tickets):
-                    with st.container():
-                        col1, col2 = st.columns([0.95, 0.05])
-                        with col1:
-                            st.write(f"**{ticket['ticket']}**")
-                            st.write(f"Date: {ticket['date']}")
-                            st.write(f"Description: {ticket['description']}")
-                        with col2:
-                            if st.button("🗑️", key=f"delete_schedule_{ticket['ticket_id']}"):
-                                try:
-                                    # Archive the ticket before removing
-                                    if archive_ticket(ticket):
-                                        # Remove ticket from the list
-                                        tickets = [t for t in tickets if t['ticket_id'] != ticket['ticket_id']]
-                                        with open("data/tickets.json", "w") as f:
-                                            json.dump(tickets, f, indent=2)
-                                        st.success(f"Ticket '{ticket['ticket']}' archived and deleted!")
-                                        st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error deleting ticket: {str(e)}")
-                        st.divider()
+                for ticket in day_tickets:
+                    with st.expander(f"🎫 {ticket['ticket']} - {ticket['date']}", expanded=False):
+                        st.write(f"**Description:** {ticket['description']}")
+                        st.write(f"**Submitted:** {ticket['submitted_at']}")
+                        if st.button("🗑️ Archive", key=f"archive_{ticket['ticket_id']}"):
+                            if archive_ticket(ticket):
+                                tickets = [t for t in tickets if t['ticket_id'] != ticket['ticket_id']]
+                                with open("data/tickets.json", "w") as f:
+                                    json.dump(tickets, f, indent=2)
+                                st.success("Ticket archived successfully!")
+                                st.rerun()
             else:
-                st.info("No tickets assigned to this location.")
+                st.info("No tickets for this location.")
 else:
     st.info("No schedule generated. Please add some tickets to create a schedule.")
 
