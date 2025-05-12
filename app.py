@@ -72,7 +72,7 @@ def unlock_day(day):
     try:
         with open("data/locked_tickets.json", "r+") as f:
             locked_data = json.load(f)
-            locked_data["locked_tickets"][day] = null
+            locked_data["locked_tickets"][day] = None
             f.seek(0)
             f.truncate()
             json.dump(locked_data, f, indent=2)
@@ -84,7 +84,7 @@ def unlock_day(day):
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
 st.markdown("This app helps you plan weekly visits to locations based on submitted support tickets. "
-            "It automatically prioritizes busier sites and skips blocked days.")
+            "It automatically prioritizes busier sites and allows locking specific tickets to days.")
 
 # --- Location Management Form ---
 with st.expander("📍 Manage Locations", expanded=False):
