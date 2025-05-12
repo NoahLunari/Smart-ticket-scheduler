@@ -45,9 +45,20 @@ new_schedule = get_schedule(tickets, default_schedule, blocked_days)
 st.subheader("📅 Weekly Schedule")
 
 if new_schedule:
+    # Count tickets per location
+    location_counts = {}
+    for ticket in tickets:
+        location = ticket.get("location")
+        if location:
+            location_counts[location] = location_counts.get(location, 0) + 1
+
     # Convert schedule dict to DataFrame for calendar-style table
     schedule_df = pd.DataFrame([
-        {"Day": day, "Location": loc}
+        {
+            "Day": day,
+            "Location": loc,
+            "Tickets": f"{location_counts.get(loc, 0)} tickets"
+        }
         for day, loc in new_schedule.items()
     ])
 
