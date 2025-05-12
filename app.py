@@ -184,7 +184,7 @@ except Exception as e:
 
 # --- Show Updated Weekly Schedule ---
 new_schedule = get_schedule(tickets, default_schedule, locked_tickets)
-st.subheader("�� Weekly Schedule")
+st.subheader("Weekly Schedule")
 st.caption("👆 Click any row in the schedule to view location details below")
 
 if new_schedule:
@@ -287,17 +287,17 @@ if new_schedule:
     
     # Get selected row data with fallback
     selected_rows = grid_response["selected_rows"]
-    if selected_rows:
-        selected_day = selected_rows[0]["Day"]
-    else:
-        # If no selection, default to first row
+    
+    # Default to first day if no selection
+    if not selected_rows and not schedule_df.empty:
         selected_day = schedule_df.iloc[0]["Day"]
-        st.rerun()  # Force refresh to show selection
+    else:
+        selected_day = selected_rows[0]["Day"] if selected_rows else None
     
     # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
     
-    if selected_day:
+    if selected_day and selected_day in new_schedule:
         location = new_schedule.get(selected_day)
         if location:
             # Check if day is locked
@@ -348,6 +348,8 @@ if new_schedule:
                                     st.rerun()
             else:
                 st.info(f"No tickets for {location} at this time.")
+    else:
+        st.info("Please select a day from the schedule above to view details.")
 else:
     st.info("No schedule generated. Please add some tickets to create a schedule.")
 
