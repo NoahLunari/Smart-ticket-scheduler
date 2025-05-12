@@ -12,35 +12,35 @@ st.markdown("This app helps you plan weekly visits to locations based on submitt
 
 # --- Location Management Form ---
 with st.expander("📍 Manage Locations", expanded=False):
+    st.subheader("Add/Remove Locations")
+    
+    # Load current locations
+    try:
+        with open("data/locations.json", "r") as f:
+            locations_data = json.load(f)
+            current_locations = locations_data.get("locations", [])
+    except Exception as e:
+        st.error(f"Error loading locations: {str(e)}")
+        current_locations = []
+
+    # Show current locations with remove buttons
+    if current_locations:
+        st.write("Current Locations:")
+        cols = st.columns(4)
+        for i, loc in enumerate(current_locations):
+            with cols[i % 4]:
+                if st.button(f"❌ {loc}", key=f"remove_{loc}"):
+                    current_locations.remove(loc)
+                    try:
+                        with open("data/locations.json", "w") as f:
+                            json.dump({"locations": current_locations}, f, indent=2)
+                        st.success(f"Location '{loc}' removed!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error saving locations: {str(e)}")
+
+    # Add new location form
     with st.form("location_form"):
-        st.subheader("Add/Remove Locations")
-        
-        # Load current locations
-        try:
-            with open("data/locations.json", "r") as f:
-                locations_data = json.load(f)
-                current_locations = locations_data.get("locations", [])
-        except Exception as e:
-            st.error(f"Error loading locations: {str(e)}")
-            current_locations = []
-
-        # Show current locations with remove buttons
-        if current_locations:
-            st.write("Current Locations:")
-            cols = st.columns(4)
-            for i, loc in enumerate(current_locations):
-                with cols[i % 4]:
-                    if st.button(f"❌ {loc}", key=f"remove_{loc}"):
-                        current_locations.remove(loc)
-                        try:
-                            with open("data/locations.json", "w") as f:
-                                json.dump({"locations": current_locations}, f, indent=2)
-                            st.success(f"Location '{loc}' removed!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error saving locations: {str(e)}")
-
-        # Add new location
         new_location = st.text_input("New Location Name")
         add_submitted = st.form_submit_button("Add Location")
 
