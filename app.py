@@ -128,8 +128,42 @@ if new_schedule:
     schedule_df["Day"] = pd.Categorical(schedule_df["Day"], categories=weekday_order, ordered=True)
     schedule_df = schedule_df.sort_values("Day")
 
-    # Show table
-    st.table(schedule_df)
+    # Show table with clickable days
+    for _, row in schedule_df.iterrows():
+        day = row["Day"]
+        location = row["Location"]
+        ticket_count = row["Tickets"]
+        
+        # Create an expander for each day
+        with st.expander(f"📅 {day} - {location} ({ticket_count})", expanded=False):
+            # Filter tickets for this location
+            day_tickets = [t for t in tickets if t["location"] == location]
+            
+            if day_tickets:
+                # Sort tickets by date
+                day_tickets.sort(key=lambda x: x["date"], reverse=True)
+                
+                # Display each ticket
+                for ticket in day_tickets:
+                    with st.container():
+                        col1, col2 = st.columns([0.95, 0.05])
+                        with col1:
+                            st.write(f"**{ticket['ticket']}**")
+                            st.write(f"Date: {ticket['date']}")
+                            st.write(f"Description: {ticket['description']}")
+                        with col2:
+                            if st.button("🗑️", key=f"delete_schedule_{ticket['ticket']}"):
+                                try:
+                                    tickets.remove(ticket)
+                                    with open("data/tickets.json", "w") as f:
+                                        json.dump(tickets, f, indent=2)
+                                    st.success(f"Ticket '{ticket['ticket']}' deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error deleting ticket: {str(e)}")
+                        st.divider()
+            else:
+                st.info("No tickets assigned to this location.")
 else:
     st.info("No schedule generated. Please add some tickets to create a schedule.")
 
