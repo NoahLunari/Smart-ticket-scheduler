@@ -129,7 +129,7 @@ if new_schedule:
     schedule_df = schedule_df.sort_values("Day")
 
     # Show table with clickable days
-    for _, row in schedule_df.iterrows():
+    for day_idx, (_, row) in enumerate(schedule_df.iterrows()):
         day = row["Day"]
         location = row["Location"]
         ticket_count = row["Tickets"]
@@ -144,7 +144,7 @@ if new_schedule:
                 day_tickets.sort(key=lambda x: x["date"], reverse=True)
                 
                 # Display each ticket
-                for ticket in day_tickets:
+                for ticket_idx, ticket in enumerate(day_tickets):
                     with st.container():
                         col1, col2 = st.columns([0.95, 0.05])
                         with col1:
@@ -152,7 +152,7 @@ if new_schedule:
                             st.write(f"Date: {ticket['date']}")
                             st.write(f"Description: {ticket['description']}")
                         with col2:
-                            if st.button("🗑️", key=f"delete_schedule_{ticket['ticket']}"):
+                            if st.button("🗑️", key=f"delete_schedule_{day_idx}_{ticket_idx}_{ticket['ticket']}"):
                                 try:
                                     tickets.remove(ticket)
                                     with open("data/tickets.json", "w") as f:
