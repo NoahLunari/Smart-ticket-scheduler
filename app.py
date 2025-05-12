@@ -4,6 +4,25 @@ import pandas as pd
 from schedule_logic import load_data, get_schedule
 import os
 from datetime import datetime, date
+import uuid
+
+def generate_ticket_id():
+    """Generate a unique ticket ID"""
+    return str(uuid.uuid4())
+
+def is_duplicate_ticket(ticket_name, location, date):
+    """Check if a ticket with the same name, location, and date already exists"""
+    try:
+        with open("data/tickets.json", "r") as f:
+            tickets = json.load(f)
+            return any(
+                t["ticket"] == ticket_name and 
+                t["location"] == location and 
+                t["date"] == date 
+                for t in tickets
+            )
+    except Exception:
+        return False
 
 def archive_ticket(ticket):
     """Archive a ticket by moving it to the archived_tickets.json file"""
@@ -100,22 +119,27 @@ with st.form("add_ticket_form"):
     submitted = st.form_submit_button("Submit Ticket")
 
     if submitted and ticket_name and locations:
-        try:
-            # Load current tickets
-            with open("data/tickets.json", "r+") as f:
-                tickets = json.load(f)
-                tickets.append({
-                    "ticket": ticket_name,
-                    "location": location,
-                    "description": description,
-                    "date": ticket_date.strftime("%Y-%m-%d"),
-                    "submitted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-                f.seek(0)
-                json.dump(tickets, f, indent=2)
-            st.success(f"✅ Ticket '{ticket_name}' added for {location}.")
-        except Exception as e:
-            st.error(f"Error saving ticket: {str(e)}")
+        # Check for duplicate ticket
+        if is_duplicate_ticket(ticket_name, location, ticket_date.strftime("%Y-%m-%d")):
+            st.error("A ticket with this name already exists for this location and date!")
+        else:
+            try:
+                # Load current tickets
+                with open("data/tickets.json", "r+") as f:
+                    tickets = json.load(f)
+                    tickets.append({
+                        "ticket_id": generate_ticket_id(),
+                        "ticket": ticket_name,
+                        "location": location,
+                        "description": description,
+                        "date": ticket_date.strftime("%Y-%m-%d"),
+                        "submitted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                    f.seek(0)
+                    json.dump(tickets, f, indent=2)
+                st.success(f"✅ Ticket '{ticket_name}' added for {location}.")
+            except Exception as e:
+                st.error(f"Error saving ticket: {str(e)}")
 
 # --- Load Data ---
 try:
@@ -178,7 +202,7 @@ if new_schedule:
                             st.write(f"Date: {ticket['date']}")
                             st.write(f"Description: {ticket['description']}")
                         with col2:
-                            if st.button("🗑️", key=f"delete_schedule_{day_idx}_{ticket_idx}_{ticket['ticket']}"):
+                            if st.button("🗑️", key=f"delete_schedule_{ticket['ticket_id']}"):
                                 try:
                                     # Archive the ticket before removing
                                     if archive_ticket(ticket):
@@ -253,7 +277,7 @@ if tickets:
         with col1:
             st.dataframe(pd.DataFrame([ticket]), hide_index=True)
         with col2:
-            if st.button("🗑️", key=f"delete_{idx}"):
+            if st.button("🗑️", key=f"delete_{ticket['ticket_id']}"):
                 try:
                     # Archive the ticket before removing
                     if archive_ticket(ticket):
