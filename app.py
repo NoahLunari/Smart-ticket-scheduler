@@ -2,12 +2,11 @@ import streamlit as st
 import json
 import pandas as pd
 from schedule_logic import load_data, get_schedule
-import os
 from datetime import datetime, date
 import uuid
-from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
-from st_aggrid.grid_options_builder import GridOptionsBuilder
+from st_aggrid import AgGrid, GridOptionsBuilder
 
+# --- Utility Functions ---
 def generate_ticket_id():
     """Generate a unique ticket ID"""
     return str(uuid.uuid4())
@@ -29,25 +28,15 @@ def is_duplicate_ticket(ticket_name, location, date):
 def archive_ticket(ticket):
     """Archive a ticket by moving it to the archived_tickets.json file"""
     try:
-        # Convert pandas Series to dict if needed
         if isinstance(ticket, pd.Series):
             ticket = ticket.to_dict()
-            
-        # Load current archived tickets
         with open("data/archived_tickets.json", "r") as f:
             archived_data = json.load(f)
             archived_tickets = archived_data.get("archived_tickets", [])
-        
-        # Add archive timestamp
         ticket["archived_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Add to archived tickets
         archived_tickets.append(ticket)
-        
-        # Save updated archived tickets
         with open("data/archived_tickets.json", "w") as f:
             json.dump({"archived_tickets": archived_tickets}, f, indent=2)
-            
         return True
     except Exception as e:
         st.error(f"Error archiving ticket: {str(e)}")
@@ -72,7 +61,7 @@ def unlock_day(day):
     try:
         with open("data/locked_tickets.json", "r+") as f:
             locked_data = json.load(f)
-            locked_data["locked_tickets"][day] = null
+            locked_data["locked_tickets"][day] = None
             f.seek(0)
             f.truncate()
             json.dump(locked_data, f, indent=2)
@@ -81,16 +70,17 @@ def unlock_day(day):
         st.error(f"Error unlocking day: {str(e)}")
         return False
 
+# --- Streamlit App Config ---
 st.set_page_config(page_title="Smart Ticket Scheduler", layout="centered")
 st.title("📋 Smart Ticket Scheduler")
-st.markdown("This app helps you plan weekly visits to locations based on submitted support tickets. "
-            "It automatically prioritizes busier sites and skips blocked days.")
+st.markdown(
+    "This app helps you plan weekly visits to locations based on submitted support tickets. "
+    "It automatically prioritizes busier sites and allows locking specific tickets to days."
+)
 
-# --- Location Management Form ---
+# --- Location Management ---
 with st.expander("📍 Manage Locations", expanded=False):
     st.subheader("Add/Remove Locations")
-    
-    # Load current locations
     try:
         with open("data/locations.json", "r") as f:
             locations_data = json.load(f)
@@ -98,8 +88,6 @@ with st.expander("📍 Manage Locations", expanded=False):
     except Exception as e:
         st.error(f"Error loading locations: {str(e)}")
         current_locations = []
-
-    # Show current locations with remove buttons
     if current_locations:
         st.write("Current Locations:")
         cols = st.columns(4)
@@ -114,12 +102,9 @@ with st.expander("📍 Manage Locations", expanded=False):
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error saving locations: {str(e)}")
-
-    # Add new location form
     with st.form("location_form"):
         new_location = st.text_input("New Location Name")
         add_submitted = st.form_submit_button("Add Location")
-
         if add_submitted and new_location:
             if new_location not in current_locations:
                 current_locations.append(new_location)
@@ -133,12 +118,10 @@ with st.expander("📍 Manage Locations", expanded=False):
             else:
                 st.warning("This location already exists!")
 
-# --- Ticket Submission Form ---
+# --- Ticket Submission ---
 with st.form("add_ticket_form"):
     st.subheader("➕ Add a New Ticket")
     ticket_name = st.text_input("Ticket Name")
-    
-    # Load locations for the dropdown
     try:
         with open("data/locations.json", "r") as f:
             locations_data = json.load(f)
@@ -146,19 +129,15 @@ with st.form("add_ticket_form"):
     except Exception as e:
         st.error(f"Error loading locations: {str(e)}")
         locations = []
-    
     location = st.selectbox("Select Location", locations) if locations else st.error("No locations available. Please add some locations first.")
     description = st.text_area("Brief Description")
     ticket_date = st.date_input("Ticket Date", value=date.today())
     submitted = st.form_submit_button("Submit Ticket")
-
     if submitted and ticket_name and locations:
-        # Check for duplicate ticket
         if is_duplicate_ticket(ticket_name, location, ticket_date.strftime("%Y-%m-%d")):
             st.error("A ticket with this name already exists for this location and date!")
         else:
             try:
-                # Load current tickets
                 with open("data/tickets.json", "r+") as f:
                     tickets = json.load(f)
                     tickets.append({
@@ -182,40 +161,31 @@ except Exception as e:
     st.error(f"Error loading data: {str(e)}")
     st.stop()
 
-# --- Show Updated Weekly Schedule ---
+# --- Weekly Schedule Grid ---
 new_schedule = get_schedule(tickets, default_schedule, locked_tickets)
 st.subheader("Weekly Schedule")
 st.caption("👆 Click any row in the schedule to view location details below")
 
 if new_schedule:
-    # Count tickets per location
     location_counts = {}
     for ticket in tickets:
         location = ticket.get("location")
         if location:
             location_counts[location] = location_counts.get(location, 0) + 1
-
-    # Create a more detailed DataFrame for the grid
     schedule_data = []
     weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    
     for day in weekday_order:
         location = new_schedule.get(day, "Not Scheduled")
         ticket_count = location_counts.get(location, 0)
         day_tickets = [t for t in tickets if t["location"] == location]
-        
-        # Check if day has a locked ticket
         locked_ticket_id = locked_tickets["locked_tickets"].get(day)
         locked_ticket = next((t for t in tickets if t["ticket_id"] == locked_ticket_id), None) if locked_ticket_id else None
-        
-        # Get the latest tickets for this location, highlighting locked ticket if present
         latest_tickets = []
         for t in day_tickets[:3]:
             if locked_ticket and t["ticket_id"] == locked_ticket["ticket_id"]:
                 latest_tickets.append(f"🔒 {t['ticket']}")
             else:
                 latest_tickets.append(t["ticket"])
-        
         schedule_data.append({
             "Day": day,
             "Location": location,
@@ -223,46 +193,17 @@ if new_schedule:
             "Status": "🔒 Locked" if locked_ticket else "✅ Available",
             "Latest Tickets": ", ".join(latest_tickets)
         })
-    
     schedule_df = pd.DataFrame(schedule_data)
-    
-    # Configure grid options
     gb = GridOptionsBuilder.from_dataframe(schedule_df)
-    gb.configure_default_column(
-        resizable=True,
-        filterable=True,
-        sorteable=True,
-        editable=False
-    )
-    
-    # Customize column properties
+    gb.configure_default_column(resizable=True, filterable=True, sorteable=True, editable=False)
     gb.configure_column("Day", pinned="left", width=120)
     gb.configure_column("Location", width=150)
     gb.configure_column("Ticket Count", width=120)
     gb.configure_column("Status", width=120)
     gb.configure_column("Latest Tickets", width=300)
-    
-    # Enable row selection with enhanced interactivity
-    gb.configure_selection(
-        selection_mode="single",
-        use_checkbox=False,
-        pre_selected_rows=[0],
-        suppressRowDeselection=True,
-    )
-    
-    # Add row click handler and styling
-    gb.configure_grid_options(
-        rowStyle={'cursor': 'pointer'},
-        domLayout='autoHeight',
-        suppressRowClickSelection=False,
-        enableRangeSelection=False,
-        suppressCellSelection=True
-    )
-    
-    # Set theme and other grid options
+    gb.configure_selection(selection_mode="single", use_checkbox=False, pre_selected_rows=[0], suppressRowDeselection=True)
+    gb.configure_grid_options(rowStyle={'cursor': 'pointer'}, domLayout='autoHeight', suppressRowClickSelection=False, enableRangeSelection=False, suppressCellSelection=True)
     grid_options = gb.build()
-    
-    # Custom CSS for hover effect
     grid_options['rowClass'] = 'row-hover'
     st.markdown("""
         <style>
@@ -271,15 +212,11 @@ if new_schedule:
         }
         </style>
     """, unsafe_allow_html=True)
-    
-    # Initialize default selection
     if 'selected_day' not in st.session_state:
         if not schedule_df.empty and len(schedule_df.index) > 0:
             st.session_state.selected_day = schedule_df.iloc[0]["Day"]
         else:
             st.session_state.selected_day = None
-    
-    # Render the grid with selection handling
     grid_return = AgGrid(
         schedule_df,
         gridOptions=grid_options,
@@ -289,25 +226,16 @@ if new_schedule:
         height=300,
         update_mode="MODEL_CHANGED"
     )
-    
-    # Handle selection
     if isinstance(grid_return, dict) and 'selected_rows' in grid_return:
         selected_rows = grid_return['selected_rows']
         if isinstance(selected_rows, list) and len(selected_rows) > 0:
             st.session_state.selected_day = selected_rows[0]["Day"]
-    
     selected_day = st.session_state.selected_day
-    
-    # Add ticket details section below the grid
     st.subheader("📝 Location Details and Ticket Management")
-    
     if selected_day and selected_day in new_schedule:
         location = new_schedule.get(selected_day)
         if location:
-            # Check if day is locked
             locked_ticket_id = locked_tickets["locked_tickets"].get(selected_day)
-            
-            # Show lock/unlock controls
             col1, col2 = st.columns([0.7, 0.3])
             with col1:
                 st.write(f"**Selected Day:** {selected_day}")
@@ -319,22 +247,15 @@ if new_schedule:
                         if unlock_day(selected_day):
                             st.success(f"Day {selected_day} unlocked!")
                             st.rerun()
-            
-            # Show tickets for the location
             day_tickets = [t for t in tickets if t["location"] == location]
             if day_tickets:
                 st.write("---")
                 st.write(f"**Tickets for {location}:**")
                 for ticket in day_tickets:
                     is_locked = ticket["ticket_id"] == locked_ticket_id
-                    with st.expander(
-                        f"{'🔒 ' if is_locked else ''}🎫 {ticket['ticket']} - {ticket['date']}", 
-                        expanded=is_locked
-                    ):
+                    with st.expander(f"{'🔒 ' if is_locked else ''}🎫 {ticket['ticket']} - {ticket['date']}", expanded=is_locked):
                         st.write(f"**Description:** {ticket['description']}")
                         st.write(f"**Submitted:** {ticket['submitted_at']}")
-                        
-                        # Lock/Archive controls
                         col1, col2 = st.columns([0.5, 0.5])
                         with col1:
                             if not is_locked and not locked_ticket_id:
@@ -360,8 +281,6 @@ else:
 # --- Show Submitted Tickets as a Table ---
 if tickets:
     st.subheader("📄 Submitted Tickets")
-    
-    # Add Clear Tickets section
     with st.expander("🗑️ Clear Tickets", expanded=False):
         st.write("Select time interval to clear tickets:")
         clear_option = st.selectbox(
@@ -369,17 +288,14 @@ if tickets:
             ["Last 24 hours", "Last 7 days", "Last 30 days", "All tickets"],
             key="clear_tickets"
         )
-        
         if st.button("Clear Selected Tickets", type="primary"):
             try:
                 current_time = datetime.now()
                 filtered_tickets = []
                 archived_tickets = []
-                
                 for ticket in tickets:
                     ticket_date = datetime.strptime(ticket['date'], "%Y-%m-%d")
                     days_diff = (current_time - ticket_date).days
-                    
                     if clear_option == "Last 24 hours" and days_diff <= 1:
                         archived_tickets.append(ticket)
                     elif clear_option == "Last 7 days" and days_diff <= 7:
@@ -390,26 +306,17 @@ if tickets:
                         archived_tickets.append(ticket)
                     else:
                         filtered_tickets.append(ticket)
-                
-                # Archive the tickets before removing
                 for ticket in archived_tickets:
                     archive_ticket(ticket)
-                
-                # Save the filtered tickets
                 with open("data/tickets.json", "w") as f:
                     json.dump(filtered_tickets, f, indent=2)
-                
                 st.success(f"✅ Cleared and archived tickets from {clear_option.lower()}")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error clearing tickets: {str(e)}")
-    
-    # Create a DataFrame with an index for deletion
     df = pd.DataFrame(tickets)
     if 'date' in df.columns:
         df = df.sort_values('date', ascending=False)
-    
-    # Add delete buttons for each ticket
     for idx, ticket in df.iterrows():
         col1, col2 = st.columns([0.95, 0.05])
         with col1:
@@ -417,9 +324,7 @@ if tickets:
         with col2:
             if st.button("🗑️", key=f"delete_{ticket['ticket_id']}"):
                 try:
-                    # Archive the ticket before removing
                     if archive_ticket(ticket):
-                        # Convert Series to dict for removal
                         ticket_dict = ticket.to_dict()
                         tickets = [t for t in tickets if t['ticket_id'] != ticket_dict['ticket_id']]
                         with open("data/tickets.json", "w") as f:
